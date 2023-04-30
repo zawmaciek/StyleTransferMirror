@@ -7,6 +7,7 @@ import matplotlib.pylab as plt
 import numpy as np
 import tensorflow as tf
 import tensorflow_hub as hub
+import time
 
 
 def crop_center(image):
@@ -33,38 +34,43 @@ def load_image(image_url, image_size=(256, 256), preserve_aspect_ratio=True):
 
 
 cap = cv2.VideoCapture(0)
-style_image_url = 'https://media.vogue.fr/photos/5c8a55363d44a0083ccbef54/2:3/w_2560%2Cc_limit/GettyImages-625257378.jpg'  # @param {type:"string"}
+style_dict = {
+    "piccaso": "https://d3d00swyhr67nd.cloudfront.net/w800h800/collection/TATE/TATE/TATE_TATE_T05010_10-001.jpg",
+    "vegetables": "https://cdn.britannica.com/17/196817-050-6A15DAC3/vegetables.jpg",
+    "munch": "https://media.npr.org/assets/img/2012/04/30/scream_custom-9ef574d2014bd441879317ecf242ad060e34e743-s1100-c50.jpg"}
+style_image_url = style_dict['munch']  # @param {type:"string"}
 style_img_size = (256, 256)  # Recommended to keep it at 256.
 style_image = load_image(style_image_url, style_img_size)
 style_image = tf.nn.avg_pool(style_image, ksize=[3, 3], strides=[1, 1], padding='SAME')
 
 hub_handle = 'https://tfhub.dev/google/magenta/arbitrary-image-stylization-v1-256/2'
 hub_module = hub.load(hub_handle)
-fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-out = cv2.VideoWriter('output.mp4', fourcc, 2, (512, 512))
-counter = 0
+FPS = 0.75
+t = time.time()
+ret, upsized = cap.read()
+height, width, channels = upsized.shape
+CAP_FPS = False
 while True:
-    ret, frame = cap.read()
-    if not ret:
-        break
-    # Resize the frame to 256x256 pixels
-    INPUT_SIZE = 512
-    frame = cv2.resize(frame, (INPUT_SIZE, INPUT_SIZE))
-    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    if time.time() - t > 1 / FPS or not CAP_FPS:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        # Resize the frame to 256x256 pixels
+        INPUT_SIZE = int(256)
+        frame = cv2.resize(frame, (INPUT_SIZE, INPUT_SIZE))
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-    content_image = frame.astype(np.float32)[np.newaxis, ...] / 255.
-    outputs = hub_module(tf.constant(content_image), tf.constant(style_image))
-    stylized_image = outputs[0]
-    upsized = cv2.resize(stylized_image[0].numpy(), (512, 512))
-    upsized = cv2.cvtColor(upsized, cv2.COLOR_RGB2BGR)
+        content_image = frame.astype(np.float32)[np.newaxis, ...] / 255.
+        outputs = hub_module(tf.constant(content_image), tf.constant(style_image))
+        stylized_image = outputs[0]
+        stylized_image = stylized_image[0].numpy()
+        upsized = cv2.resize(stylized_image, (width, height))
+        upsized = cv2.cvtColor(upsized, cv2.COLOR_RGB2BGR)
 
-    depthed_upscaled_frame = cv2.convertScaleAbs(upsized)
-    out.write(depthed_upscaled_frame)
-
+        t = time.time()
     cv2.imshow("Live Video", upsized)
-    if cv2.waitKey(1) == ord('q') or counter > 10:
+    if cv2.waitKey(1) == ord('q'):
         break
-    counter += 1
 
 cap.release()
 cv2.destroyAllWindows()
