@@ -34,24 +34,26 @@ def load_image(image_url, image_size=(256, 256), preserve_aspect_ratio=True):
 
 
 cap = cv2.VideoCapture(0)
-style_dict = {
-    "piccaso": "https://d3d00swyhr67nd.cloudfront.net/w800h800/collection/TATE/TATE/TATE_TATE_T05010_10-001.jpg",
-    "vegetables": "https://cdn.britannica.com/17/196817-050-6A15DAC3/vegetables.jpg",
-    "munch": "https://media.npr.org/assets/img/2012/04/30/scream_custom-9ef574d2014bd441879317ecf242ad060e34e743-s1100-c50.jpg"}
-style_image_url = style_dict['munch']  # @param {type:"string"}
-style_img_size = (256, 256)  # Recommended to keep it at 256.
-style_image = load_image(style_image_url, style_img_size)
-style_image = tf.nn.avg_pool(style_image, ksize=[3, 3], strides=[1, 1], padding='SAME')
-
+style_list = [
+    "https://d3d00swyhr67nd.cloudfront.net/w800h800/collection/TATE/TATE/TATE_TATE_T05010_10-001.jpg",
+    "https://cdn.britannica.com/17/196817-050-6A15DAC3/vegetables.jpg",
+    "https://media.npr.org/assets/img/2012/04/30/scream_custom-9ef574d2014bd441879317ecf242ad060e34e743-s1100-c50.jpg",
+    "https://cdn.cdaction.pl/images/2021/11/19/bde85c8d-7397-42ba-bcdd-e7d80c2789ac.jpeg?preset=medium"]
 hub_handle = 'https://tfhub.dev/google/magenta/arbitrary-image-stylization-v1-256/2'
 hub_module = hub.load(hub_handle)
-FPS = 0.75
+FPS = 1
 t = time.time()
 ret, upsized = cap.read()
 height, width, channels = upsized.shape
 CAP_FPS = False
+counter = 0
 while True:
     if time.time() - t > 1 / FPS or not CAP_FPS:
+        style_image_url = style_list[counter // 10 % len(style_list)]
+        style_img_size = (256, 256)  # Recommended to keep it at 256.
+        style_image = load_image(style_image_url, style_img_size)
+        style_image = tf.nn.avg_pool(style_image, ksize=[3, 3], strides=[1, 1], padding='SAME')
+        counter += 1
         ret, frame = cap.read()
         if not ret:
             break
@@ -64,7 +66,7 @@ while True:
         outputs = hub_module(tf.constant(content_image), tf.constant(style_image))
         stylized_image = outputs[0]
         stylized_image = stylized_image[0].numpy()
-        upsized = cv2.resize(stylized_image, (width, height))
+        upsized = cv2.resize(stylized_image, (width, height), interpolation=cv2.INTER_AREA)
         upsized = cv2.cvtColor(upsized, cv2.COLOR_RGB2BGR)
 
         t = time.time()
