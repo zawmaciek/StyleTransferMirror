@@ -45,10 +45,12 @@ ret, upsized = cap.read()
 height, width, channels = upsized.shape
 CAP_FPS = False
 counter = 0
+SIZE = 512
+SWITCH_EVERY_FRAMES = 5
 while True:
     if time.time() - t > 1 / FPS or not CAP_FPS:
-        style_image_url = style_list[counter // 10 % len(style_list)]
-        style_img_size = (256, 256)  # Recommended to keep it at 256.
+        style_image_url = style_list[counter // SWITCH_EVERY_FRAMES % len(style_list)]
+        style_img_size = (SIZE, SIZE)  # Recommended to keep it at 256.
         style_image = load_image(style_image_url, style_img_size)
         style_image = tf.nn.avg_pool(style_image, ksize=[3, 3], strides=[1, 1], padding='SAME')
         counter += 1
@@ -56,7 +58,7 @@ while True:
         if not ret:
             break
         # Resize the frame to 256x256 pixels
-        INPUT_SIZE = int(256)
+        INPUT_SIZE = int(SIZE)
         frame = cv2.resize(frame, (INPUT_SIZE, INPUT_SIZE))
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
